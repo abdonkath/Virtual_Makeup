@@ -53,7 +53,7 @@ while True:
         output = cv2.addWeighted(image, 1.0, mask, 0.2, 1.0)
         cv2.imshow("Feature", output)
         # press q to exit the cv2 window
-        if cv2.waitKey(100) & 0xFF == ord("q"):
+        if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 video_capture.release()
 cv2.destroyAllWindows()
