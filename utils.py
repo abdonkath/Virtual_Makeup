@@ -1,5 +1,8 @@
+import math
 import numpy as np
 import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 import cv2
 
 
@@ -20,9 +23,20 @@ face_points={
 "EYEBROW_RIGHT": [285, 336, 296, 334, 293, 300, 276, 283, 295, 285]
 }
 
-# initialize mediapipe functions
-mp_face_mesh = mp.solutions.face_mesh
-mp_drawing = mp.solutions.drawing_utils
+# initialize mediapipe face landmarker (new Tasks API)
+# requires face_landmarker.task model file in the project directory
+_base_options = python.BaseOptions(model_asset_path='face_landmarker.task')
+_options = vision.FaceLandmarkerOptions(
+    base_options=_base_options,
+    num_faces=1,
+)
+_face_landmarker = vision.FaceLandmarker.create_from_options(_options)
+
+
+def _normalized_to_pixel_coordinates(normalized_x, normalized_y, image_width, image_height):
+    x_px = min(math.floor(normalized_x * image_width), image_width - 1)
+    y_px = min(math.floor(normalized_y * image_height), image_height - 1)
+    return (x_px, y_px)
 
 
 # to display image in cv2 window
@@ -42,15 +56,17 @@ def read_landmarks(image: np.array):
     image : image as np.array
     """
     landmark_cordinates = {}
-    # load mediapipe facemesh and detect facial landmarks
-    # face landmarks returns normalized points of all facial landmarks from 0 to 477
-    with mp_face_mesh.FaceMesh(refine_landmarks=True) as face_mesh:
-        results = face_mesh.process(image)
-        face_landmarks = results.multi_face_landmarks[0].landmark
+    # convert BGR to RGB, then wrap in mediapipe Image
+    rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_image)
+
+    # detect facial landmarks (returns normalized points 0 to 477)
+    results = _face_landmarker.detect(mp_image)
+    face_landmarks = results.face_landmarks[0]
 
     # convert normalized points w.r.to image dimensions
     for idx, landmark in enumerate(face_landmarks):
-        landmark_px = mp_drawing._normalized_to_pixel_coordinates(
+        landmark_px = _normalized_to_pixel_coordinates(
             landmark.x, landmark.y, image.shape[1], image.shape[0]
         )
         # create a map of facial landmarks to (x,y) coordinates
